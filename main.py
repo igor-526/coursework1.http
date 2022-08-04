@@ -59,4 +59,5 @@ class Diskapi:
             print(file)
             requests.put(yadisk._getuploadlink(get_setting('yandexpath'), file, get_setting('yandexoverwrite')), data=open(f'photos/{file}', 'rb'))
 
-print ('commited')
+
+vk = Vkapi(get_setting('vktoken'))
