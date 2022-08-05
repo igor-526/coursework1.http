@@ -71,11 +71,43 @@ def downloadalbum():
     vk.savephotos(vk._getalbuminfo(settings['id'], settings['albumid'], settings['count']))
 
 
+def yandexinit(token):
+    yadisk = Diskapi(token)
+    response = yadisk.getinfo()
+    if token == 'not found':
+        print ('Ошибка! Токен Яндекс не найден')
+        write_setting('yandextoken', input('Введите Ваш токен Яндекс: '))
+        return('retry')
+    if 'error' in response:
+        print(f'Ошибка! {response["error"]}')
+        write_setting('yandextoken', input('Введите Ваш токен Яндекс: '))
+        return ('retry')
+    else:
+        print(f'Авторизация успешна! Логин: {response["user"]["login"]}')
+        return ('passed')
+
+
+def yaupload():
+    initresult = yandexinit(get_setting('yandextoken'))
+    while initresult == 'retry':
+        initresult = yandexinit(get_setting('yandextoken'))
+    if initresult == 'passed':
+        settings = {"folderpath": "photos", 'yandexpath': "photosvk", "overwrite": "true"}
+    yadisk = Diskapi(get_setting('yandextoken'))
+    leng = len(os.listdir(settings["folderpath"]))
+    for counter, file in enumerate(os.listdir(settings["folderpath"])):
+        uploadfile = (os.path.join(os.getcwd(), settings["folderpath"], file))
+        href = yadisk.getuploadlink(settings["yandexpath"], file, settings["overwrite"])
+        yadisk.uploadphotos(href, uploadfile)
+        print(f'| {int(counter/leng*100)}% | Файл {file} успешно загружен!')
+
+
 def menu(choise):
     initvk(get_setting('vktoken'))
     while choise != 'q':
         print('1. Выгрузить фотографии из альбома\n'
               '2. Удалить токен VK\n'
+              '3. Загрузить фотографии на Яндекс.Диск\n'
               'q. Выход из программы\n')
         choise = input("Выберите пункт меню: ")
         if choise == '1':
@@ -84,6 +116,8 @@ def menu(choise):
         if choise == '2':
             write_setting('vktoken', '')
             menu(0)
+        if choise == '3':
+            yaupload()
     else:
         print('До свидания!')
         sys.exit()
@@ -154,17 +188,19 @@ class Diskapi:
     def __init__(self, token: str):
         self.token = token
 
-    def _getuploadlink(self, path, file, overwrite):
+
+    def getuploadlink(self, path, file, overwrite):
         url = 'https://cloud-api.yandex.net:443/v1/disk/resources/upload'
         headers = {'Content-Type': 'application/json', 'Authorization': self.token}
         response = requests.get(url, headers=headers, params={'path': f'{path}/{file}', 'overwrite': overwrite})
-        return response.json()['href']
+        return (response.json()['href'])
 
-    def uploadphotos(self):
-        for file in (os.listdir('photos')):
-            print(file)
-            requests.put(yadisk._getuploadlink(get_setting('yandexpath'), file, get_setting('yandexoverwrite')), data=open(f'photos/{file}', 'rb'))
+    def uploadphotos(self, href, path):
+        requests.put(href, data=open(path, 'rb'))
 
+    def getinfo(self):
+        response = requests.get('https://cloud-api.yandex.net:443/v1/disk',
+                                headers = {'Content-Type': 'application/json', 'Authorization': self.token})
+        return (response.json())
 
-yadisk = Diskapi('yandextoken')
 menu(0)
